@@ -22,13 +22,7 @@ router.put(
     "/:id/status",
     updateStatus
 );
-router.get(
-    "/search",
-    searchTask
-);
-router.post(
-    "/:id/summary",
-    generateSummary
-);
+router.get("/search", searchTask);
+router.post("/:id/summary", generateSummary);
 
 export default router;

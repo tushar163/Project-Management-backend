@@ -242,31 +242,53 @@ export const generateSummary = async (req: AuthRequest, res: Response) => {
     }
 };
 
-// small helper, calls Claude to get a one-liner summary of the task
+// small helper, calls Gemini to get a one-liner summary of the task
+// using gemini-1.5-flash since 2.0-flash is shut down as of June 2026,
+// swap GEMINI_MODEL in .env if you want to try a newer one later
 async function callAiForSummary(title: string, description: string | null): Promise<string> {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-            "x-api-key": process.env.ANTHROPIC_API_KEY as string,
-            "anthropic-version": "2023-06-01",
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-            model: "claude-sonnet-4-6",
-            max_tokens: 100,
-            messages: [
-                {
-                    role: "user",
-                    content: `Summarize this task in one short sentence for a project dashboard.\n\nTitle: ${title}\nDescription: ${description ?? "No description provided"}`,
+    const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+        throw new Error("Gemini API key missing");
+    }
+
+    const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {
+            method: "POST",
+            headers: {
+                "x-goog-api-key": apiKey,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                contents: [
+                    {
+                        parts: [
+                            {
+                                text: `Summarize this task in one short sentence for a project dashboard.\n\nTitle: ${title}\nDescription: ${description ?? "No description provided"}`,
+                            },
+                        ],
+                    },
+                ],
+                generationConfig: {
+                    maxOutputTokens: 100,
                 },
-            ],
-        }),
-    });
+            }),
+        }
+    );
 
     if (!response.ok) {
-        throw new Error(`AI API returned ${response.status}`);
+        const errorBody = await response.text();
+        throw new Error(`Gemini API returned ${response.status}: ${errorBody}`);
     }
 
     const data = await response.json();
-    return data.content[0].text.trim();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!text) {
+        throw new Error("Gemini response had no text content");
+    }
+
+    return text.trim();
 }

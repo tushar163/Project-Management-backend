@@ -67,7 +67,9 @@ export const getProjects = async (req: AuthRequest, res: Response) => {
                 take: limit,
             }),
             prisma.project.count({ where }),
-        ]);
+        ],
+            { timeout: 10000 }
+        );
 
         return res.status(200).json({
             data: projects,
